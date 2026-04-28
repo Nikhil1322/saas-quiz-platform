@@ -32,17 +32,19 @@ export function middleware(req: NextRequest) {
     subdomain = hostname.replace('.localhost:3000', '');
   } else if (hostname.includes('.lvh.me:3000')) {
     subdomain = hostname.replace('.lvh.me:3000', '');
-  } else {
-    // For production domains like demo.yoursaas.com
+  } else if (hostname.endsWith('.vercel.app')) {
+    // For Vercel, the main domain is [project].vercel.app
+    // We only want a subdomain if it's [tenant].[project].vercel.app (4 parts)
     const parts = hostname.split('.');
-    
-    // Check if the host ends with one of our known parent domains
+    if (parts.length >= 4) {
+      subdomain = parts[0];
+    }
+  } else {
+    // For custom production domains like tenant.yoursaas.com
+    const parts = hostname.split('.');
     const isMainDomain = allowedDomains.some(d => hostname === d);
-    const isNgrok = hostname.includes('ngrok');
     
-    // If it has at least 3 parts (e.g. demo.yoursaas.com) and is NOT the main domain and NOT ngrok
-    if (parts.length >= 3 && !isMainDomain && !isNgrok) {
-      // The subdomain is the first part
+    if (parts.length >= 3 && !isMainDomain && !hostname.includes('ngrok')) {
       subdomain = parts[0];
     }
   }
