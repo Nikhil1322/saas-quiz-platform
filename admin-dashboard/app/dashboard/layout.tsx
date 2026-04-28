@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 const NAV = [
     { href: "/dashboard", label: "Dashboard", icon: "📊" },
     { href: "/dashboard/forms", label: "My Forms", icon: "📋" },
+    { href: "/dashboard/bookings", label: "Bookings", icon: "📅" },
+    { href: "/dashboard/event-types", label: "Booking Settings", icon: "⚡" },
+    { href: "/dashboard/availability", label: "Availability", icon: "⏰" },
+    { href: "/dashboard/meetings", label: "Meetings", icon: "📹" },
     { href: "/dashboard/settings", label: "Settings", icon: "⚙️" },
     { href: "/dashboard/profile", label: "Profile", icon: "👤" },
 ];
@@ -18,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("merchant_token");
         if (!token) { window.location.href = "/"; return; }
         setRole(localStorage.getItem("role") || "");
         setUsername(localStorage.getItem("username") || "");

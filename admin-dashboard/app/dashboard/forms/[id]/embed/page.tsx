@@ -16,7 +16,7 @@ export default function FormEmbedPage() {
   const [tab, setTab] = useState<"iframe"|"script"|"shopify">("iframe");
 
   useEffect(() => {
-    const token = localStorage.getItem("token") || "";
+    const token = localStorage.getItem("merchant_token") || "";
     fetch(`/api/admin/forms/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { if (d.name) setFormName(d.name); });
   }, [id]);

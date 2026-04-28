@@ -152,7 +152,7 @@ export default function SettingsPage() {
                                placeholder="https://your-server.com/webhook" />
                         <button onClick={async () => {
                             const res = await fetch("/api/admin/settings/webhook", {
-                                method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + localStorage.getItem("token") },
+                                method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + localStorage.getItem("merchant_token") },
                                 body: JSON.stringify({ webhook_url: (settings as any).webhookUrl })
                             });
                             if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000); }
@@ -170,7 +170,7 @@ export default function SettingsPage() {
                         <button onClick={async () => {
                             if (!confirm("Generate a new API Key? Your old key will stop working immediately.")) return;
                             const res = await fetch("/api/admin/settings/apikey", {
-                                method: "POST", headers: { "Authorization": "Bearer " + localStorage.getItem("token") }
+                                method: "POST", headers: { "Authorization": "Bearer " + localStorage.getItem("merchant_token") }
                             });
                             const data = await res.json();
                             if (data.api_key) setSettings(s => ({ ...s, apiKey: data.api_key }));

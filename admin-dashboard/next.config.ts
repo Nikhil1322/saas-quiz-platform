@@ -8,21 +8,19 @@ const nextConfig: NextConfig = {
     "192.168.1.71",
   ],
   async rewrites() {
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:5000";
     return [
-      // Proxy /uploads/* directly from the backend (for images stored on disk)
       {
         source: "/uploads/:path*",
-        destination: "http://localhost:5000/uploads/:path*",
+        destination: `${backendUrl}/uploads/:path*`,
       },
-      // Proxy /api/img/* — alias for old stored image URLs
       {
         source: "/api/img/:path*",
-        destination: "http://localhost:5000/api/img/:path*",
+        destination: `${backendUrl}/api/img/:path*`,
       },
-      // Proxy all other /api/* to the backend
       {
         source: "/api/:path*",
-        destination: "http://localhost:5000/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },

@@ -10,7 +10,7 @@ export default function MasterMerchants() {
     const [token, setToken] = useState("");
 
     const [showNew, setShowNew] = useState(false);
-    const [newM, setNewM] = useState({ name: "", email: "", password: "", brand_name: "" });
+    const [newM, setNewM] = useState({ name: "", email: "", password: "", brand_name: "", subdomain: "" });
     const [editing, setEditing] = useState<any>(null);
 
     useEffect(() => {
@@ -36,7 +36,7 @@ export default function MasterMerchants() {
         });
         if (res.ok) {
             setShowNew(false);
-            setNewM({ name: "", email: "", password: "", brand_name: "" });
+            setNewM({ name: "", email: "", password: "", brand_name: "", subdomain: "" });
             loadMerchants(token);
         } else {
             const data = await res.json();
@@ -65,7 +65,8 @@ export default function MasterMerchants() {
                 plan: editing.plan,
                 plan_status: editing.plan_status,
                 monthly_amount: editing.monthly_amount,
-                trial_ends_at: editing.trial_ends_at
+                trial_ends_at: editing.trial_ends_at,
+                subdomain: editing.subdomain
             })
         });
         if (res.ok) {
@@ -113,6 +114,10 @@ export default function MasterMerchants() {
                                 <label className="text-sm font-medium mb-1.5 block">Password</label>
                                 <Input type="password" required value={newM.password} onChange={e => setNewM(m => ({...m, password: e.target.value}))} />
                             </div>
+                            <div className="md:col-span-2">
+                                <label className="text-sm font-medium mb-1.5 block">Subdomain (optional)</label>
+                                <Input value={newM.subdomain} placeholder="e.g. brandname (will be auto-generated if left blank)" onChange={e => setNewM(m => ({...m, subdomain: e.target.value}))} />
+                            </div>
                             <div className="md:col-span-2 pt-2">
                                 <Button type="submit" className="w-full md:w-auto">Create Account</Button>
                             </div>
@@ -138,6 +143,7 @@ export default function MasterMerchants() {
                                 <td className="px-6 py-4">
                                     <div className="font-bold text-slate-900">{m.brand_name}</div>
                                     <div className="text-slate-500 mt-0.5">{m.email}</div>
+                                    <div className="text-indigo-600 mt-1 text-xs font-mono bg-indigo-50 inline-block px-2 py-0.5 rounded">{m.subdomain}.yoursaas.com</div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${m.plan_status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -201,6 +207,10 @@ export default function MasterMerchants() {
                                             <div>
                                                 <label className="text-sm mb-1.5 block">Brand Name</label>
                                                 <Input required value={editing.brand_name} onChange={e => setEditing({...editing, brand_name: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="text-sm mb-1.5 block">Subdomain</label>
+                                                <Input required value={editing.subdomain} onChange={e => setEditing({...editing, subdomain: e.target.value})} />
                                             </div>
                                         </div>
                                     </div>

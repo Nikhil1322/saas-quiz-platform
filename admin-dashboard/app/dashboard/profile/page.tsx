@@ -1,27 +1,65 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type ProfileData = { id: number; username: string; role: string; created_at: string; };
+type ProfileData = { 
+  id: number; 
+  username: string; 
+  role: string; 
+  created_at: string; 
+  brand_name: string; 
+  subdomain: string;
+};
 
 export default function ProfilePage() {
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [error, setError] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [editData, setEditData] = useState({ brand_name: "", subdomain: "" });
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        fetchProfile();
+    }, []);
+
+    const fetchProfile = async () => {
+        const token = localStorage.getItem("merchant_token");
         if (!token) { window.location.href = "/"; return; }
 
-        fetch("/api/admin/profile", {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then(async r => {
-                const data = await r.json();
-                if (r.status === 401) { localStorage.clear(); window.location.href = "/"; return; }
-                if (data.msg) { setError(`Error: ${data.msg}`); return; }
-                setProfile(data);
-            })
-            .catch(() => setError("Cannot connect to server. Make sure the backend is running."));
-    }, []);
+        try {
+            const r = await fetch("/api/admin/profile", {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await r.json();
+            if (r.status === 401) { localStorage.clear(); window.location.href = "/"; return; }
+            if (data.msg) { setError(`Error: ${data.msg}`); return; }
+            setProfile(data);
+            setEditData({ brand_name: data.brand_name || "", subdomain: data.subdomain || "" });
+        } catch (err) {
+            setError("Cannot connect to server. Make sure the backend is running.");
+        }
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSaving(true);
+        const token = localStorage.getItem("merchant_token");
+        try {
+            const res = await fetch("/api/admin/merchant/profile", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify(editData),
+            });
+            if (res.ok) {
+                alert("Profile updated successfully!");
+                fetchProfile();
+            } else {
+                const data = await res.json();
+                alert(data.msg || "Failed to update profile");
+            }
+        } catch (err) {
+            alert("Network error. Please try again.");
+        }
+        setSaving(false);
+    };
 
     const logout = () => { localStorage.clear(); window.location.href = "/"; };
 
@@ -30,69 +68,104 @@ export default function ProfilePage() {
             <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
                 <p className="font-semibold text-red-800 mb-2">⚠️ Profile Error</p>
                 <p className="text-sm text-red-700">{error}</p>
-                <p className="text-xs text-red-500 mt-3">Try: sign out and log in again to refresh your session token.</p>
                 <button onClick={logout} className="mt-4 bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition">Sign Out & Re-login</button>
             </div>
         </div>
     );
 
     if (!profile) return (
-        <div className="p-6 flex items-center gap-3 text-gray-400">
-            <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="p-8 flex items-center gap-4 text-gray-400 font-black uppercase tracking-widest text-xs">
+            <div className="w-6 h-6 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
             Loading profile...
         </div>
     );
 
-    const initial = profile.username?.charAt(0).toUpperCase() || "A";
     const isMaster = profile.role === "master";
 
     return (
-        <div className="p-6 max-w-xl">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">👤 My Profile</h1>
+        <div className="p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+            <h1 className="text-4xl font-black text-gray-900 tracking-tight">Profile Settings</h1>
 
-            <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-                {/* Banner */}
-                <div className="h-24 bg-gradient-to-r from-indigo-500 to-purple-600" />
-
-                {/* Profile */}
-                <div className="px-6 pb-6">
-                    <div className="flex items-end justify-between -mt-10 mb-5">
-                        <div className="w-20 h-20 bg-white rounded-2xl border-4 border-white shadow-lg flex items-center justify-center">
-                            <span className="text-3xl font-bold text-indigo-600">{initial}</span>
-                        </div>
-                        <span className={`mb-1 px-3 py-1.5 rounded-xl text-sm font-semibold ${isMaster ? "bg-indigo-100 text-indigo-700 border border-indigo-200" : "bg-gray-100 text-gray-600 border border-gray-200"}`}>
-                            {isMaster ? "👑 Master Admin" : "👤 Staff"}
-                        </span>
-                    </div>
-
-                    <h2 className="text-xl font-bold text-gray-900">{profile.username}</h2>
-                    <p className="text-sm text-gray-500 mt-0.5 capitalize">{profile.role} — Quiz CRM</p>
-
-                    <div className="mt-6 space-y-3 border-t pt-5">
-                        {[
-                            { label: "Username", value: profile.username },
-                            { label: "Role", value: isMaster ? "Master Administrator" : "Staff Member" },
-                            { label: "Member Since", value: profile.created_at ? new Date(profile.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : "—" },
-                            { label: "Permissions", value: isMaster ? "Full access (leads, users, quiz editor, settings)" : "Leads view & status updates" },
-                        ].map(item => (
-                            <div key={item.label} className="flex justify-between items-start gap-4">
-                                <span className="text-sm text-gray-500 shrink-0">{item.label}</span>
-                                <span className="text-sm font-medium text-gray-900 text-right">{item.value}</span>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left: Info Card */}
+                <div className="lg:col-span-5 space-y-6">
+                    <div className="bg-white rounded-[40px] border border-gray-100 shadow-2xl shadow-indigo-100 overflow-hidden">
+                        <div className="h-32 bg-gradient-to-br from-indigo-600 to-purple-700" />
+                        <div className="px-8 pb-8">
+                            <div className="relative -mt-12 mb-6">
+                                <div className="w-24 h-24 bg-white rounded-3xl border-8 border-white shadow-xl flex items-center justify-center text-4xl font-black text-indigo-600">
+                                    {profile.username?.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="absolute bottom-0 right-0 px-3 py-1 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-full shadow-lg">
+                                    {profile.role}
+                                </span>
                             </div>
-                        ))}
+                            <h2 className="text-2xl font-black text-gray-900">{profile.username}</h2>
+                            <p className="text-gray-400 font-bold text-sm mt-1">{profile.brand_name || "Merchant"} Profile</p>
+                            
+                            <div className="mt-8 space-y-4">
+                                <div className="flex justify-between items-center text-sm font-bold">
+                                    <span className="text-gray-400">Account ID</span>
+                                    <span className="text-gray-900">#{profile.id}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm font-bold">
+                                    <span className="text-gray-400">Member Since</span>
+                                    <span className="text-gray-900">{new Date(profile.created_at).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+
+                            <button onClick={logout} className="mt-8 w-full py-4 rounded-2xl bg-red-50 text-red-600 font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all active:scale-95">
+                                Sign Out Session
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Actions */}
-            <div className="mt-4 bg-white rounded-2xl border shadow-sm p-5">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">Account Actions</h3>
-                <div className="space-y-2">
-                    <button onClick={logout}
-                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-sm font-medium transition">
-                        <span>Sign Out</span>
-                        <span>→</span>
-                    </button>
+                {/* Right: Settings Form */}
+                <div className="lg:col-span-7">
+                    <div className="bg-white rounded-[40px] border border-gray-100 shadow-sm p-10 space-y-8">
+                        <div className="space-y-1">
+                            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Business Identity</h3>
+                            <p className="text-gray-400 font-medium text-sm">Customize your brand appearance and public booking URL.</p>
+                        </div>
+
+                        <form onSubmit={handleSave} className="space-y-8">
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Brand Name</label>
+                                <input 
+                                    value={editData.brand_name}
+                                    onChange={(e) => setEditData({...editData, brand_name: e.target.value})}
+                                    placeholder="Your Business Name"
+                                    className="w-full bg-gray-50 border-2 border-gray-50 rounded-3xl px-6 py-4 font-bold text-gray-900 focus:border-indigo-500 focus:bg-white transition-all outline-none"
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Public Subdomain</label>
+                                <div className="flex items-center gap-2 bg-gray-50 border-2 border-gray-50 rounded-3xl px-6 py-4 focus-within:border-indigo-500 focus-within:bg-white transition-all">
+                                    <span className="text-gray-300 font-black tracking-tight">/book/</span>
+                                    <input 
+                                        value={editData.subdomain}
+                                        onChange={(e) => setEditData({...editData, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '')})}
+                                        placeholder="unique-slug"
+                                        className="bg-transparent flex-1 font-black text-indigo-600 outline-none"
+                                    />
+                                    <span className="text-gray-300 font-black text-xs">/event</span>
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-bold ml-1">This forms your public booking link. Use only lowercase letters and numbers.</p>
+                            </div>
+
+                            <div className="pt-4">
+                                <button 
+                                    type="submit"
+                                    disabled={saving || !isMaster}
+                                    className="w-full bg-gray-900 hover:bg-black disabled:bg-gray-200 text-white font-black py-5 rounded-3xl shadow-2xl transition-all active:scale-[0.98] uppercase tracking-widest text-xs"
+                                >
+                                    {saving ? "Saving Changes..." : isMaster ? "Update Business Profile" : "Master Admin Only"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

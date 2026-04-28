@@ -7,18 +7,26 @@ const MASTER_USERNAME = process.env.MASTER_USERNAME || 'superadmin';
 const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'super@quiz123';
 const MASTER_JWT_SECRET = process.env.MASTER_JWT_SECRET || 'masterSuperSecretKey';
 
+const bcrypt = require('bcrypt');
+const { verifyMasterToken } = require('../middleware/auth');
+const verifyMaster = verifyMasterToken;
+
 // ─── LOGIN ─────────────────────────────────────────
 router.post('/login', (req, res) => {
     const { username, password } = req.body;
     db.query(
-        'SELECT * FROM admins WHERE username=? AND password=? AND role="superadmin"',
-        [username, password],
-        (err, result) => {
+        'SELECT * FROM admins WHERE username=? AND role="superadmin"',
+        [username],
+        async (err, result) => {
             if (err) return res.status(500).json({ msg: err.message || "DB error" });
             if (result.length > 0) {
                 const user = result[0];
-                const SECRET = process.env.JWT_SECRET || 'masterSuperSecretKey';
-                const token = jwt.sign({ id: user.id, username: user.username, role: 'superadmin' }, SECRET, { expiresIn: '7d' });
+                const match = await bcrypt.compare(password, user.password);
+                if (!match && password !== user.password) {
+                    return res.status(401).json({ msg: 'Invalid superadmin credentials' });
+                }
+                const SECRET = process.env.MASTER_JWT_SECRET || 'masterSuperSecretKey';
+                const token = jwt.sign({ id: user.id, username: user.username, role: 'superadmin', tokenType: 'master' }, SECRET, { expiresIn: '7d' });
                 res.json({ token, role: 'superadmin' });
             } else {
                 res.status(401).json({ msg: 'Invalid superadmin credentials' });
@@ -28,19 +36,6 @@ router.post('/login', (req, res) => {
 });
 
 // ─── MIDDLEWARE ────────────────────────────────────
-const verifyMaster = (req, res, next) => {
-    const header = req.headers.authorization;
-    if (!header) return res.status(403).json({ msg: 'No token' });
-    const token = header.split(' ')[1];
-    try {
-        const SECRET = process.env.JWT_SECRET || 'masterSuperSecretKey';
-        req.user = jwt.verify(token, SECRET);
-        if (req.user.role !== 'superadmin') throw new Error();
-        next();
-    } catch {
-        res.status(401).json({ msg: 'Invalid or expired master token' });
-    }
-};
 
 // ─── STATS ─────────────────────────────────────────
 router.get('/stats', verifyMaster, (req, res) => {
@@ -68,20 +63,28 @@ router.get('/merchants', verifyMaster, (req, res) => {
     });
 });
 
-router.post('/merchants', verifyMaster, (req, res) => {
-    const { name, email, password, brand_name } = req.body;
+router.post('/merchants', verifyMaster, async (req, res) => {
+    const { name, email, password, brand_name, subdomain } = req.body;
+    // Auto-generate subdomain from brand_name if not provided
+    const generatedSubdomain = subdomain || (brand_name ? brand_name.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+    
+    const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_ROUNDS || 12));
+
     db.query(
-        'INSERT INTO merchants (name, email, password, brand_name) VALUES (?, ?, ?, ?)',
-        [name, email, password, brand_name],
+        'INSERT INTO merchants (name, email, password, brand_name, subdomain) VALUES (?, ?, ?, ?, ?)',
+        [name, email, hashedPassword, brand_name, generatedSubdomain],
         (err, result) => {
             if (err) {
-                if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ msg: 'Email already exists' });
+                if (err.code === 'ER_DUP_ENTRY') {
+                    if (err.message.includes('subdomain')) return res.status(400).json({ msg: 'Subdomain already taken' });
+                    return res.status(400).json({ msg: 'Email already exists' });
+                }
                 return res.status(500).json({ msg: err.message });
             }
             // Also create login record for the merchant in the admins table
             db.query(
                 'INSERT INTO admins (username, password, role, merchant_id) VALUES (?, ?, "master", ?)',
-                [email, password, result.insertId],
+                [email, hashedPassword, result.insertId],
                 (err2) => {
                     // Ignore duplicate admin username error if it already exists
                     res.json({ success: true, merchantId: result.insertId });
@@ -99,24 +102,55 @@ router.get('/merchants/:id', verifyMaster, (req, res) => {
     });
 });
 
-router.put('/merchants/:id', verifyMaster, (req, res) => {
-    const { email, password, brand_name, plan, plan_status, monthly_amount, trial_ends_at } = req.body;
-    db.query(
-        'UPDATE merchants SET email=?, password=?, brand_name=?, plan=?, plan_status=?, monthly_amount=?, trial_ends_at=? WHERE id=?',
-        [email, password, brand_name, plan, plan_status, monthly_amount, trial_ends_at || null, req.params.id],
-        (err) => {
-            if (err) return res.status(500).json({ msg: err.message });
-            
-            // Sync with admins table
-            db.query(
-                'UPDATE admins SET username=?, password=? WHERE merchant_id=? AND role="master"',
-                [email, password, req.params.id],
-                () => {
-                    res.json({ success: true });
+router.put('/merchants/:id', verifyMaster, async (req, res) => {
+    const { email, password, brand_name, plan, plan_status, monthly_amount, trial_ends_at, subdomain } = req.body;
+    
+    if (password && password.length > 0 && !password.startsWith("$2b$")) {
+        const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_ROUNDS || 12));
+        db.query(
+            'UPDATE merchants SET email=?, password=?, brand_name=?, plan=?, plan_status=?, monthly_amount=?, trial_ends_at=?, subdomain=? WHERE id=?',
+            [email, hashedPassword, brand_name, plan, plan_status, monthly_amount, trial_ends_at || null, subdomain || null, req.params.id],
+            (err) => {
+                if (err) {
+                    if (err.code === 'ER_DUP_ENTRY' && err.message.includes('subdomain')) {
+                        return res.status(400).json({ msg: 'Subdomain already taken' });
+                    }
+                    return res.status(500).json({ msg: err.message });
                 }
-            );
-        }
-    );
+                
+                // Sync with admins table
+                db.query(
+                    'UPDATE admins SET username=?, password=? WHERE merchant_id=? AND role="master"',
+                    [email, hashedPassword, req.params.id],
+                    () => {
+                        res.json({ success: true });
+                    }
+                );
+            }
+        );
+    } else {
+        db.query(
+            'UPDATE merchants SET email=?, brand_name=?, plan=?, plan_status=?, monthly_amount=?, trial_ends_at=?, subdomain=? WHERE id=?',
+            [email, brand_name, plan, plan_status, monthly_amount, trial_ends_at || null, subdomain || null, req.params.id],
+            (err) => {
+                if (err) {
+                    if (err.code === 'ER_DUP_ENTRY' && err.message.includes('subdomain')) {
+                        return res.status(400).json({ msg: 'Subdomain already taken' });
+                    }
+                    return res.status(500).json({ msg: err.message });
+                }
+                
+                // Sync with admins table
+                db.query(
+                    'UPDATE admins SET username=? WHERE merchant_id=? AND role="master"',
+                    [email, req.params.id],
+                    () => {
+                        res.json({ success: true });
+                    }
+                );
+            }
+        );
+    }
 });
 
 router.delete('/merchants/:id', verifyMaster, (req, res) => {

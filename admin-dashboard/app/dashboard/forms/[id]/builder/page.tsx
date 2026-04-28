@@ -5,10 +5,10 @@ import { DndContext, closestCenter, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-type QType = "short_text"|"phone"|"email"|"number"|"single_choice"|"multi_choice"|"image_choice"|"image_upload"|"rating"|"dropdown"|"nps";
+type QType = "short_text"|"phone"|"email"|"number"|"single_choice"|"multi_choice"|"image_choice"|"image_upload"|"rating"|"dropdown"|"nps"|"appointment";
 type Option = { id: string; text: string; imageUrl?: string };
 type LogicJump = { condition: string; value: string; goTo: string };
-type Q = { id: string; label: string; description: string; key: string; type: QType; required: boolean; placeholder: string; options: Option[]; section: string; imageUrl: string; maxRating: number; logicJumps?: LogicJump[] };
+type Q = { id: string; label: string; description: string; key: string; type: QType; required: boolean; placeholder: string; options: Option[]; section: string; imageUrl: string; maxRating: number; logicJumps?: LogicJump[]; duration?: number };
 type Theme = { primaryColor: string; bgColor: string; textColor: string; buttonStyle: "rounded"|"pill"|"sharp" };
 type Config = { title: string; description: string; logoUrl: string; theme: Theme; questions: Q[]; welcomeBtn: string; thankYouTitle: string; thankYouDesc: string; buttonText: string; submitText: string };
 
@@ -18,7 +18,7 @@ const TYPES: {type:QType;icon:string;label:string}[] = [
   {type:"rating",icon:"⭐",label:"Rating"},{type:"phone",icon:"📱",label:"Phone"},
   {type:"email",icon:"📧",label:"Email"},{type:"number",icon:"#️⃣",label:"Number"},
   {type:"dropdown",icon:"🔽",label:"Dropdown"},{type:"nps",icon:"📈",label:"NPS Score"},
-  {type:"image_upload",icon:"📤",label:"Image Upload"},
+  {type:"image_upload",icon:"📤",label:"Image Upload"},{type:"appointment",icon:"📅",label:"Appointment"},
 ];
 const COLORS = ["#6366f1","#8b5cf6","#ec4899","#f43f5e","#f59e0b","#10b981","#3b82f6","#14b8a6","#000000"];
 // Auto-generate a clean key from question label text
@@ -105,7 +105,7 @@ export default function FormBuilderPage() {
   const [token, setToken] = useState("");
 
   useEffect(() => {
-    const t = localStorage.getItem("token")||"";
+    const t = localStorage.getItem("merchant_token")||"";
     setToken(t);
     if(!t){router.push("/");return;}
     fetch(`/api/admin/forms/${id}`,{headers:{Authorization:`Bearer ${t}`}})
@@ -240,6 +240,12 @@ export default function FormBuilderPage() {
                   <div><label className="text-sm font-semibold text-gray-700 block mb-2">Max Stars</label>
                   <div className="flex gap-2">{[3,4,5,6,7,10].map(n=>(
                     <button key={n} onClick={()=>upd({maxRating:n})} className={`w-10 h-10 rounded-xl border text-sm font-bold transition ${selQ.maxRating===n?"bg-indigo-600 text-white border-indigo-600":"border-gray-200 text-gray-600"}`}>{n}</button>
+                  ))}</div></div>
+                )}
+                {selQ.type==="appointment" && (
+                  <div><label className="text-sm font-semibold text-gray-700 block mb-2">Meeting Duration</label>
+                  <div className="flex gap-2">{[15,30,45,60].map(n=>(
+                    <button key={n} onClick={()=>upd({duration:n})} className={`px-4 py-2 rounded-xl border text-sm font-bold transition ${selQ.duration===n?"bg-indigo-600 text-white border-indigo-600":"border-gray-200 text-gray-600"}`}>{n} min</button>
                   ))}</div></div>
                 )}
                 {selQ.type==="image_upload" && (

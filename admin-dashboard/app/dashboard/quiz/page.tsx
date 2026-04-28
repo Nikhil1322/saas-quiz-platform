@@ -155,7 +155,7 @@ export default function QuizBuilderPage() {
     const [token, setToken] = useState("");
 
     useEffect(() => {
-        const t = localStorage.getItem("token") || "";
+        const t = localStorage.getItem("merchant_token") || "";
         setToken(t);
         fetch("/api/admin/quiz-config", { headers: { Authorization: `Bearer ${t}` } })
             .then(r => r.json()).then(d => { if (d?.questions?.length) setConfig(d); }).catch(() => { });

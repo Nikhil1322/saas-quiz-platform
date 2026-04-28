@@ -10,7 +10,10 @@ export default function MasterLayout({ children }: { children: React.ReactNode }
 
     useEffect(() => {
         setMounted(true);
-    }, []);
+        if (!isLogin && !localStorage.getItem("master_token")) {
+            window.location.href = "/master";
+        }
+    }, [isLogin]);
 
     const logout = () => {
         localStorage.removeItem("master_token");

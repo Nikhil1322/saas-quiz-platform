@@ -12,7 +12,7 @@ export default function UsersPage() {
     const [inviteRole, setInviteRole] = useState("staff_viewer");
 
     useEffect(() => {
-        const t = localStorage.getItem("token") || "";
+        const t = localStorage.getItem("merchant_token") || "";
         const r = localStorage.getItem("role") || "";
         setToken(t);
         if (!t || r !== "master") { window.location.href = "/dashboard"; return; }

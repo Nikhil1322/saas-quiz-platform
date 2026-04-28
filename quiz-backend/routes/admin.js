@@ -7,25 +7,10 @@ const { Parser } = require("json2csv");
 
 
 // ─── MIDDLEWARES ───────────────────────────────────
-
-const verifyToken = (req, res, next) => {
-    const header = req.headers.authorization;
-    if (!header) return res.status(403).json({ msg: "No token" });
-    const token = header.split(" ")[1];
-    try {
-        req.user = jwt.verify(token, process.env.JWT_SECRET);
-        next();
-    } catch {
-        res.status(401).json({ msg: "Invalid token" });
-    }
-};
-
-const requireMaster = (req, res, next) => {
-    if (req.user?.role !== "master" && req.user?.role !== "staff_admin") {
-        return res.status(403).json({ msg: "Admin access only" });
-    }
-    next();
-};
+const { verifyMerchantToken, requireMerchantAdmin } = require("../middleware/auth");
+const verifyToken = verifyMerchantToken;
+const requireMaster = requireMerchantAdmin;
+const bcrypt = require("bcrypt");
 
 
 const { OAuth2Client } = require('google-auth-library');
@@ -36,14 +21,18 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || "placehold
 router.post("/login", (req, res) => {
     const { username, password } = req.body;
     db.query(
-        "SELECT * FROM admins WHERE username=? AND password=?",
-        [username, password],
-        (err, result) => {
+        "SELECT * FROM admins WHERE username=?",
+        [username],
+        async (err, result) => {
             if (err) { console.error("Login DB error:", err); return res.status(500).json({ msg: err.message || "DB error", code: err.code }); }
             if (result.length > 0) {
                 const user = result[0];
+                const match = await bcrypt.compare(password, user.password);
+                if (!match && password !== user.password) {
+                    return res.status(401).json({ msg: "Invalid username or password" });
+                }
                 const token = jwt.sign(
-                    { id: user.id, username: user.username, role: user.role, merchant_id: user.merchant_id },
+                    { id: user.id, username: user.username, role: user.role, merchant_id: user.merchant_id, tokenType: "merchant" },
                     process.env.JWT_SECRET,
                     { expiresIn: "7d" }
                 );
@@ -70,7 +59,7 @@ router.post("/google-login", async (req, res) => {
             if (result.length > 0) {
                 const user = result[0];
                 const token = jwt.sign(
-                    { id: user.id, username: user.username, role: user.role, merchant_id: user.merchant_id },
+                    { id: user.id, username: user.username, role: user.role, merchant_id: user.merchant_id, tokenType: "merchant" },
                     process.env.JWT_SECRET,
                     { expiresIn: "7d" }
                 );
@@ -95,7 +84,7 @@ router.get("/profile", verifyToken, (req, res) => {
     const val = id || username;
     
     if (merchant_id) {
-        sql = "SELECT a.id, a.username, a.role, a.created_at, m.plan, m.plan_status, m.trial_ends_at, m.brand_name, m.api_key, m.webhook_url FROM admins a LEFT JOIN merchants m ON a.merchant_id = m.id WHERE a.id=?";
+        sql = "SELECT a.id, a.username, a.role, a.created_at, m.plan, m.plan_status, m.trial_ends_at, m.brand_name, m.api_key, m.webhook_url, m.subdomain FROM admins a LEFT JOIN merchants m ON a.merchant_id = m.id WHERE a.id=?";
     }
 
     db.query(sql, [val], (err, result) => {
@@ -159,9 +148,11 @@ router.post("/invite", verifyToken, requireMaster, (req, res) => {
     });
 });
 
-router.post("/accept-invite", (req, res) => {
+router.post("/accept-invite", async (req, res) => {
     const { token, username, password } = req.body;
     if (!token || !username || !password) return res.status(400).json({ msg: "Missing fields" });
+
+    const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_ROUNDS || 12));
 
     db.query("SELECT * FROM invitations WHERE token=? AND used=0", [token], (err, result) => {
         if (err) return res.status(500).json(err);
@@ -172,7 +163,7 @@ router.post("/accept-invite", (req, res) => {
 
         db.query(
             "INSERT INTO admins (username, password, role, merchant_id) VALUES (?, ?, ?, ?)",
-            [username, password, role, merchant_id],
+            [username, hashedPassword, role, merchant_id],
             (err2) => {
                 if (err2) return res.status(400).json({ msg: "Username already taken" });
                 db.query("UPDATE invitations SET used=1 WHERE token=?", [token]);

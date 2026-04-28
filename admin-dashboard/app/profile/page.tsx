@@ -12,7 +12,7 @@ export default function Profile() {
     const [error, setError] = useState("");
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("merchant_token");
         if (!token) { window.location.href = "/"; return; }
 
         fetch("/api/admin/profile", {

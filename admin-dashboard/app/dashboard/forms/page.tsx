@@ -37,7 +37,7 @@ export default function FormsPage() {
   const [newType, setNewType] = useState<string>("quiz");
   const router = useRouter();
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
+  const token = typeof window !== "undefined" ? localStorage.getItem("merchant_token") || "" : "";
 
   useEffect(() => {
     if (!token) { router.push("/"); return; }
