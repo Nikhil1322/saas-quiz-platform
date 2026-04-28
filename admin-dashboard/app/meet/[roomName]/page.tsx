@@ -330,7 +330,7 @@ export default function GuestMeetingRoom() {
 
 function VideoTile({ name, stream, isLocal, localRef }: {
   name: string; stream?: MediaStream | null; isLocal?: boolean;
-  localRef?: React.RefObject<HTMLVideoElement>;
+  localRef?: React.RefObject<HTMLVideoElement | null>;
 }) {
   const remoteRef = useRef<HTMLVideoElement>(null);
   const ref = localRef ?? remoteRef;
