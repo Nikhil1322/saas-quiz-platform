@@ -55,18 +55,16 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // If there's no subdomain or it's "www" or "app", let it pass to the normal SaaS dashboard
-  if (!subdomain || subdomain === 'www' || subdomain === 'app') {
+  // 1. If it's the main domain, NEVER rewrite
+  if (!subdomain || subdomain === 'www' || subdomain === 'app' || hostname === 'saas-quiz-platform-unnp.vercel.app') {
     return NextResponse.next();
   }
 
-  // Prevent rewriting if the user is explicitly trying to visit the /site path
-  if (url.pathname.startsWith('/site')) {
+  // 2. Prevent infinite loops or rewriting of static assets
+  if (url.pathname.startsWith('/site') || url.pathname.startsWith('/api') || url.pathname.startsWith('/_next')) {
     return NextResponse.next();
   }
 
-  // Rewrite to the tenant-specific dynamic route
-  // e.g. srishti.yoursaas.com/ -> rewrites to /site/srishti/
-  // e.g. srishti.yoursaas.com/quiz/1 -> rewrites to /site/srishti/quiz/1
+  // 3. Rewrite to tenant site
   return NextResponse.rewrite(new URL(`/site/${subdomain}${url.pathname}`, req.url));
 }
