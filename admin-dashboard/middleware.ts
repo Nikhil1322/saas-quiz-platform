@@ -22,7 +22,14 @@ export function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') || '';
 
   // Define allowed parent domains (add yours here)
-  const allowedDomains = ['localhost:3000', 'lvh.me:3000', 'ngrok-free.app', 'yoursaas.com', 'vercel.app'];
+  const allowedDomains = [
+    'localhost:3000', 
+    'lvh.me:3000', 
+    'ngrok-free.app', 
+    'yoursaas.com', 
+    'vercel.app', 
+    'saas-quiz-platform-unnp.vercel.app'
+  ];
 
   // Extract the subdomain
   let subdomain = '';
@@ -43,7 +50,7 @@ export function middleware(req: NextRequest) {
     // Custom domains (e.g. tenant.yoursaas.com)
     const parts = hostname.split('.');
     const isMainDomain = allowedDomains.some(d => hostname === d);
-    if (parts.length >= 3 && !isMainDomain && !hostname.includes('ngrok')) {
+    if (parts.length >= 3 && !isMainDomain && !hostname.includes('ngrok') && hostname !== 'saas-quiz-platform-unnp.vercel.app') {
       subdomain = parts[0];
     }
   }
