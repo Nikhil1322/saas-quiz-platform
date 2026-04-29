@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "public": false,
+  "rootDirectory": "admin-dashboard",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "rewrites": [
+    {
+      "source: "/api/(.*)",
+      "destination": "https://saas-quiz-platform.onrender.com/api/$1"
+    }
+  ]
+}
