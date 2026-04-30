@@ -1,7 +1,7 @@
 {
   "version": 2,
   "public": false,
-  "rootDirectory": "admin-dashboard",
+  "rootDirectory": "dashboard",
   "builds": [
     {
       "src": "package.json",
